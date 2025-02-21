@@ -2,6 +2,7 @@
 using Microsoft.ML.Data;
 using Microsoft.ML;
 
+// Data model for traffic.csv
 class TrafficData 
 {
     [LoadColumn(0)] 
@@ -33,6 +34,7 @@ class Data {
 class Trainer {
     public static void TrainModel() 
     {
+        // Loads the traffic database CSV file.
         IDataView data = Data.mlCtx.Data.LoadFromTextFile<TrafficData>(
                 Data.csvPath,
                 separatorChar: ',', 
@@ -40,7 +42,12 @@ class Trainer {
         );
         Console.WriteLine($"Read traffic data from {Data.csvPath}");
 
-        var pipeline = Data.mlCtx.Transforms.CopyColumns("Label", "Vehicles")
+        // Creates Machine Learning pipeline.
+        var pipeline =
+            // Create Lable column, containing vehicle number content.
+            // Required so that model can predict the vehicle count.
+            Data.mlCtx.Transforms.CopyColumns("Label", "Vehicles")
+            // Convert Juncion to number type to ensure proper Microsoft.ML storage.
             .Append(Data
                 .mlCtx.Transforms
                 .Conversion.ConvertType(
@@ -48,11 +55,13 @@ class Trainer {
                     outputKind: DataKind.Single
                 )
             )
+            // Transform DateTime string so that Microsoft.ML understands it.
             .Append(Data
                 .mlCtx.Transforms
                 .Text.FeaturizeText("DateTimeFeaturized", "DateTime"
                 )
             )
+            // Combine all features into a single column.
             .Append(Data
                 .mlCtx.Transforms
                 .Concatenate(
@@ -60,6 +69,7 @@ class Trainer {
                     new[] { "Junction", "DateTimeFeaturized"}
                 )
             )
+            // Train the FastTree regression model.
             .Append(Data
                 .mlCtx.Regression
                 .Trainers.FastTree(
@@ -80,8 +90,7 @@ class Trainer {
 class Predictor {
     public static void Predict(string userInput) 
     {
-        var ctx = new MLContext();
-
+        // Load the trained model.
         ITransformer model = Data
             .mlCtx.Model
             .Load(Data.modelPath, out var modelSchema);
@@ -89,6 +98,7 @@ class Predictor {
             .mlCtx.Model
             .CreatePredictionEngine<TrafficData, Prediction>(model);
 
+        // Create prediction input based on date and time entered by user.
         var traffic = new TrafficData
         {
             DateTime = userInput,
